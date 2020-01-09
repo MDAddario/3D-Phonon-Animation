@@ -450,4 +450,3 @@ s.t.
 
 -> \omega t = omega_i * (2Pi / fps / omega_max / T_max) * current_frame
 '''
-
