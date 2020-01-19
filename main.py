@@ -306,6 +306,7 @@ plt.show()
 '''
 TODO LIST:
 	
+	- Make everything faster with numba
 	- Build bcc and fcc dynamical matrices
 	- Consider diatomic systems
 		- Diamond
