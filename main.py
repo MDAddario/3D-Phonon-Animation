@@ -5,6 +5,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Slider, Button, RadioButtons
 import time
+from numba import njit
 
 '''
 User set parameters
@@ -74,14 +75,16 @@ num_atoms = N_1 * N_2 * N_3
 positions = np.empty((3 * num_atoms, tot_frames))
 
 # Enter atomic coordinates into position array
-def set_atomic_positions(index, x_data, y_data, z_data):
+@njit
+def set_atomic_positions(positions, index, x_data, y_data, z_data):
 	
 	positions[index + 0 * num_atoms, :] = x_data
 	positions[index + 1 * num_atoms, :] = y_data
 	positions[index + 2 * num_atoms, :] = z_data
 	
 # Add atomic motions to position array
-def add_atomic_positions(index, x_data, y_data, z_data):
+@njit
+def add_atomic_positions(positions, index, x_data, y_data, z_data):
 	
 	positions[index + 0 * num_atoms, :] += x_data
 	positions[index + 1 * num_atoms, :] += y_data
@@ -96,99 +99,82 @@ a = 1.0
 b = 1.0
 c = 1.0
 
+'''
+Precompute indices
+'''
+indices = np.empty((N_1, N_2, N_3), dtype='int')
+
+for n_1 in range(N_1):
+	for n_2 in range(N_2):
+		for n_3 in range(N_3):
+
+			indices[n_1, n_2, n_3] = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
+
 # Place each atom in its equilibrium position
-def set_lattice_offsets():
+@njit
+def set_lattice_offsets(positions):
 
 	for n_1 in range(N_1):
 		for n_2 in range(N_2):
 			for n_3 in range(N_3):
 
-				index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
-				set_atomic_positions(index, a * n_1, b * n_2, c * n_3)
-				
-def add_lattice_offsets():
-
-	for n_1 in range(N_1):
-		for n_2 in range(N_2):
-			for n_3 in range(N_3):
-
-				index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
-				add_atomic_positions(index, a * n_1, b * n_2, c * n_3)
+				index = indices[n_1, n_2, n_3]
+				set_atomic_positions(positions, index, a * n_1, b * n_2, c * n_3)
 				
 '''
 PRECOMPUTE THE SPATIAL ARRAY COMPONENTS
 '''
-spat_n1_on_N1 = np.empty((num_atoms, tot_frames))
-spat_n2_on_N2 = np.empty((num_atoms, tot_frames))
-spat_n3_on_N3 = np.empty((num_atoms, tot_frames))
+spatial_n1 = np.empty((num_atoms, 1))
+spatial_n2 = np.empty((num_atoms, 1))
+spatial_n3 = np.empty((num_atoms, 1))
 
 for n_1 in range(N_1):
 	for n_2 in range(N_2):
 		for n_3 in range(N_3):
 			
-			index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
-			spat_n1_on_N1[index, :] = n_1 / N_1
-			spat_n2_on_N2[index, :] = n_2 / N_2
-			spat_n3_on_N3[index, :] = n_3 / N_3
+			index = indices[n_1, n_2, n_3]
+			spatial_n1[index, 0] = n_1 / N_1
+			spatial_n2[index, 0] = n_2 / N_2
+			spatial_n3[index, 0] = n_3 / N_3
 
 # Excite a photon within the system
-def excite_phonon(branch, covar_coeffs, amplitude):
+@njit
+def excite_phonon(positions, branch, covar_coeffs, amplitude):
 
 	# Extract reciprocal coefficients
 	m_1, m_2, m_3 = covar_coeffs
-		
+	
 	# Select branch evec and eval
 	if branch == 1:
 		epsilon   = amplitude * np.array([1, 0, 0])
 		omega     = omega_1[m_1]
 		omega_max = omega_1_max
-		
+	
 	elif branch == 2:
 		epsilon   = amplitude * np.array([0, 1, 0])
 		omega     = omega_2[m_2]
 		omega_max = omega_2_max
-		
+	
 	elif branch == 3:
 		epsilon   = amplitude * np.array([0, 0, 1])
 		omega     = omega_3[m_3]
 		omega_max = omega_3_max
-
-	# Configure atomic vibrations
+	
+	# Configure temporal portion of vibration
 	temporal = omega / fps / omega_max / T_max * np.arange(tot_frames)
 	
-	'''
-	# Run faster than before please!
-	spatial = m_1 * spat_n1_on_N1 + m_2 * spat_n2_on_N2 + m_3 * spat_n3_on_N3
+	# Configure spatial portion of vibration
+	spatial = m_1 * spatial_n1 + m_2 * spatial_n2 + m_3 * spatial_n3
+	
+	# Compute vibration and update positions
 	oscillation = np.sin(2 * np.pi * (spatial - temporal))
-	return
+	x_disp = epsilon[0] * oscillation
+	y_disp = epsilon[1] * oscillation
+	z_disp = epsilon[1] * oscillation
 	
-	add_lattice_offsets()
-	return
-	'''
-	
-	# OLD CODE
-	for n_1 in range(N_1):
-		for n_2 in range(N_2):
-			for n_3 in range(N_3):
-				
-				index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
-				
-				spatial = m_1 * n_1 / N_1 \
-						+ m_2 * n_2 / N_2 \
-						+ m_3 * n_3 / N_3
-				
-				
-				'''
-				THE FOLLOWING LINE IS THE CAUSE OF RUNTIME
-				'''
-				sine = np.sin(2 * np.pi * (spatial - temporal))
-				
-				add_atomic_positions(index, \
-									epsilon[0] * sine, \
-									epsilon[1] * sine, \
-									epsilon[2] * sine)
+	positions += np.vstack((x_disp, y_disp, z_disp))
 
-set_lattice_offsets()
+set_lattice_offsets(positions)
 
 '''
 Plotting the system
@@ -256,12 +242,12 @@ def update_phonon(val):
 	m_2 = int(slid_m_2.val)
 	m_3 = int(slid_m_3.val)
 
-	set_lattice_offsets()
+	set_lattice_offsets(positions)
 
 	# Benchmark phonon
 	global radio_branch
 	start = time.time()
-	excite_phonon(radio_branch, [m_1, m_2, m_3], amp)
+	excite_phonon(positions, radio_branch, [m_1, m_2, m_3], amp)
 	end = time.time()
 	print('Excitation took: {:.2e}s'.format(end - start))
 	
@@ -311,8 +297,8 @@ def freeze(event):
 	slid_m_2.reset()
 	slid_m_3.reset()
 
-	set_lattice_offsets()
-	excite_phonon(radio_branch, [0, 0, 0], 0)
+	set_lattice_offsets(positions)
+	excite_phonon(positions, radio_branch, [0, 0, 0], 0)
 	
 	ax.set_title('Cubic Lattice Phonons', fontsize=20, y=1.08)
     
@@ -353,11 +339,11 @@ plt.show()
 '''
 TODO LIST:
 	
+	- SCRAP THE LCM THING
+	- Just resize the position array everytime you wanna compute the mode
+	
 	- Precompute and store:
 		- Original lattice offsets
-		- Indices
-		- spatial components
-	- Then, remove all loops from excite_phonon() function
 	- Remove a, b, c (just set all = 1)
 	- Make everything faster with numba (hop3fully)
 	- Build bcc and fcc dynamical matrices
