@@ -4,6 +4,7 @@ from matplotlib import pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from matplotlib.animation import FuncAnimation
 from matplotlib.widgets import Slider, Button, RadioButtons
+import time
 
 '''
 User set parameters
@@ -139,7 +140,11 @@ def excite_phonon(branch, covar_coeffs, amplitude):
 				spatial = m_1 * n_1 / N_1 \
 						+ m_2 * n_2 / N_2 \
 						+ m_3 * n_3 / N_3
-						
+				
+				
+				'''
+				THE FOLLOWING LINE IS THE CAUSE OF RUNTIME
+				'''
 				sine = np.sin(2 * np.pi * (spatial - temporal))
 				
 				add_atomic_positions(index, \
@@ -209,6 +214,7 @@ slid_m_3 = Slider(ax_m_3, r'$m_3$', 0, N_3-1, valinit=0, valstep=1)
 
 def update_phonon(val):
 	
+	# Retrieve slider values
 	amp = slid_amp.val
 	m_1 = int(slid_m_1.val)
 	m_2 = int(slid_m_2.val)
@@ -216,9 +222,14 @@ def update_phonon(val):
 
 	set_lattice_offsets()
 
+	# Benchmark phonon
 	global radio_branch
+	start = time.time()
 	excite_phonon(radio_branch, [m_1, m_2, m_3], amp)
+	end = time.time()
+	print('Excitation took: {:.2e}s'.format(end - start))
 	
+	# Update title
 	if m_1 == 1:
 		m_1 = ''
 	if m_2 == 1:
@@ -306,7 +317,13 @@ plt.show()
 '''
 TODO LIST:
 	
-	- Make everything faster with numba
+	- Precompute and store:
+		- Original lattice offsets
+		- Indices
+		- spatial components
+	- Then, remove all loops from excite_phonon() function
+	- Remove a, b, c (just set all = 1)
+	- Make everything faster with numba (hop3fully)
 	- Build bcc and fcc dynamical matrices
 	- Consider diatomic systems
 		- Diamond
