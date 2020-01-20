@@ -156,6 +156,7 @@ def excite_phonon(branch, covar_coeffs, amplitude):
 	# Configure atomic vibrations
 	temporal = omega / fps / omega_max / T_max * np.arange(tot_frames)
 	
+	'''
 	# Run faster than before please!
 	spatial = m_1 * spat_n1_on_N1 + m_2 * spat_n2_on_N2 + m_3 * spat_n3_on_N3
 	oscillation = np.sin(2 * np.pi * (spatial - temporal))
@@ -163,6 +164,7 @@ def excite_phonon(branch, covar_coeffs, amplitude):
 	
 	add_lattice_offsets()
 	return
+	'''
 	
 	# OLD CODE
 	for n_1 in range(N_1):
