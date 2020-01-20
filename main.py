@@ -106,6 +106,31 @@ def set_lattice_offsets():
 				index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
 				set_atomic_positions(index, a * n_1, b * n_2, c * n_3)
 				
+def add_lattice_offsets():
+
+	for n_1 in range(N_1):
+		for n_2 in range(N_2):
+			for n_3 in range(N_3):
+
+				index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
+				add_atomic_positions(index, a * n_1, b * n_2, c * n_3)
+				
+'''
+PRECOMPUTE THE SPATIAL ARRAY COMPONENTS
+'''
+spat_n1_on_N1 = np.empty((num_atoms, tot_frames))
+spat_n2_on_N2 = np.empty((num_atoms, tot_frames))
+spat_n3_on_N3 = np.empty((num_atoms, tot_frames))
+
+for n_1 in range(N_1):
+	for n_2 in range(N_2):
+		for n_3 in range(N_3):
+			
+			index = n_1 + n_2 * N_1 + n_3 * (N_1 * N_2)
+			spat_n1_on_N1[index, :] = n_1 / N_1
+			spat_n2_on_N2[index, :] = n_2 / N_2
+			spat_n3_on_N3[index, :] = n_3 / N_3
+
 # Excite a photon within the system
 def excite_phonon(branch, covar_coeffs, amplitude):
 
@@ -131,6 +156,15 @@ def excite_phonon(branch, covar_coeffs, amplitude):
 	# Configure atomic vibrations
 	temporal = omega / fps / omega_max / T_max * np.arange(tot_frames)
 	
+	# Run faster than before please!
+	spatial = m_1 * spat_n1_on_N1 + m_2 * spat_n2_on_N2 + m_3 * spat_n3_on_N3
+	oscillation = np.sin(2 * np.pi * (spatial - temporal))
+	return
+	
+	add_lattice_offsets()
+	return
+	
+	# OLD CODE
 	for n_1 in range(N_1):
 		for n_2 in range(N_2):
 			for n_3 in range(N_3):
